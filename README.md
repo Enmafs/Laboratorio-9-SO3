@@ -11,7 +11,8 @@ Practica 1: Instalacion de Webmin.
   • Configuración de red: Configurar una IP estática en interfaces de red.                                                                                           
   • Administración de software: Actualizar, instalar y eliminar alguna herramienta.                                                                                            
   • Gestión de archivos y directorios: Explorar, editar un archivo y eliminarlo.                                                                                                        
-  • Monitorización del sistema: Supervisar el rendimiento del sistema (memoria, procesador, almacenamiento).                                                                                                                                                                                                                                                                          
+  • Monitorización del sistema: Supervisar el rendimiento del sistema (memoria, procesador, almacenamiento).
+  
 Practica 2: Despliegue de una VM con Terraform en Digital Ocean.                                                                                                              
 • Proceda a instalar Terraform en la VM Server:                                                                                                                              
   • https://developer.hashicorp.com/terraform/install                                                                                                               
