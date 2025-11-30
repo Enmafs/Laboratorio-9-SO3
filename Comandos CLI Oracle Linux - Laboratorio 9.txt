@@ -1,0 +1,183 @@
+Práctica 1
+sudo nano /etc/yum.repos.d/webmin
+[Webmin]
+name=Webmin Distribution Neutral
+#baseurl=https://download.webmin.com/download/yum
+mirrorlist=https://download.webmin.com/download/yum/mirrorlist
+enabled=1
+gpgkey=https://download.webmin.com/jcameron-key.asc
+gpgcheck=0
+
+sudo dnf install webmin -y
+systemctl status webmin
+sudo firewall-cmd --add-port 10000/tcp --permanent
+sudo firewall-cmd --reload
+nmcli con sh en160 | grep method
+
+Práctica 2
+sudo dnf config-manager --add-repo https://rpm.releases.hasicorp.com/RHEL/hasicorp.repo
+sudo dnf repolist
+
+sudo nano /etc/yum.repos.s/hasicorp.repo
+[hashicorp]
+name=Hashicorp Stable - $basearch
+baseurl=https://rpm.releases.hashicorp.com/RHEL/9/$basearch/stable
+enabled=1
+gpgcheck=1
+gpgkey=https://rpm.releases.hashicorp.com/gpg
+
+[hashicorp-test]
+name=Hashicorp Test - $basearch
+baseurl=https://rpm.releases.hashicorp.com/RHEL/9/$basearch/test
+enabled=0
+gpgcheck=1
+gpgkey=https://rpm.releases.hashicorp.com/gpg
+
+sudo dnf install terraform
+sudo mkdir terraform
+cd terraform
+
+nano main.tf
+terraform {
+  required_providers {
+
+    digitalocean = {
+
+      source  = "digitalocean/digitalocean"
+
+      version = "~> 2.0"
+
+    }
+
+  }
+
+}
+
+# Variable para el token (para no escribirlo directo aquí por seguridad)
+variable "do_token" {}
+# Variable para la ruta de tu llave pública
+variable "ssh_key_path" {
+  default = "/home/efeliz/.ssh/id_rsa.pub" 
+}
+provider "digitalocean" {
+  token = var.do_token
+}
+
+# 1. Subir la llave de Ansible a DigitalOcean
+resource "digitalocean_ssh_key" "ansible_key" {
+  name       = "Ansible-Key-OracleLinux"
+  public_key = file(var.ssh_key_path)
+}
+
+# 2. Crear el Droplet (VM) con los specs
+resource "digitalocean_droplet" "vm_servidor" {
+  image    = "ubuntu-22-04-x64"
+  name     = "OS3vm"
+  region   = "nyc1"
+  size     = "s-1vcpu-1gb"
+
+  # Aquí vinculamos la llave que subimos arriba
+  ssh_keys = [digitalocean_ssh_key.ansible_key.fingerprint]
+}
+
+# 3. Mostrar la IP al terminar
+output "ip_address" {
+  value = digitalocean_droplet.vm_servidor.ipv4_address
+}
+
+ssh-keygen -t rsa
+sudo terraform init
+sudo terraform apply
+### Se pega el token ###
+ssh-copy-id root@ip_de_vm
+ssh root@ip_de_vm
+sudo terraform destroy
+
+Práctica 3
+######## VM OL 10 ########
+sudo useradd ansible
+sudo passwd ansible
+sudo usermod -aG wheel ansible
+
+su ansible
+sudo dnf install ansible-core -y
+ansible-galaxy collection install ansible.windows
+pip3 install pywinrm --user
+
+sudo nano /etc/ansible/hosts
+[linux]
+
+68.183.97.3 ansible_user=ansible
+
+[win]
+10.0.0.90
+
+[win:vars]
+ansible_user=ansible2
+ansible_password=123
+ansible_connection=winrm
+ansible_winrm_server_cert_validation=ignore
+
+ssh-keygen -t rsa
+cat ~/.ssh/id_rsa.pub
+
+ssh root@(ip_vm_Digital.O) # Desde el usuario que ya reconoce la VM (efeliz)
+
+######## VM UBUNTU ########
+adduser ansible
+usermod -aG root asible
+usermod -aG sudo asible
+echo "ansible ALL=(ALL) NOPASSWD:ALL" | sudo tee /etc/sudoers.d/ansible
+
+su ansible
+sudo mkdir ~/.ssh
+sudo nano ~/.ssh/authorized_keys
+sudo nano /etc/ssh/sshd_config
+PasswordAuthentication yes
+PubkeyAuthentication yes
+
+######## VM WINDOWS ########
+### Agregamos el usuario y lo agregamos al grupo de Administradores ###
+# 1. Configurar seguridad para la descarga en Windows
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+$url = "https://raw.githubusercontent.com/ansible/ansible-documentation/devel/examples/scripts/ConfigureRemotingForAnsible.ps1"
+$file = "$env:temp\ConfigureRemotingForAnsible.ps1"
+
+# 3. Descargar el script oficial
+(New-Object -TypeName System.Net.WebClient).DownloadFile($url, $file)
+powershell.exe -ExecutionPolicy ByPass -File $file
+
+New-NetFirewallRule -Name "Ansible_WinRM_HTTPS" -DisplayName "Ansible WinRM HTTPS" -Description "Permitir Ansible por puerto 5986" -Profile Any -Direction Inbound -Action Allow -Protocol TCP -LocalPort 5986
+
+######## Desde la el usuario ansible en VM OL 10 ########
+ansible Linux -m ping && ansible win -m win_ping
+
+Práctica 4
+ansible win -m fetch -a "src='C:/Users/ansible2/Desktop/mensaje.txt' dest='/home/ansible/' flat=yes"
+cat mensaje.txt
+ansible linux -m copy -a "src='/home/ansible/mensaje.txt' dest='/home/ansible/'"
+
+ansible Linux -m reboot -b
+
+Práctica 5
+nano notepad.yml
+- hosts: win
+  task:
+  - win_chocolatey:
+       name: notepadplusplus
+ansible-galaxy collection install chocolatey.chocolatey
+ansible-palybook notepad.yml
+
+nano nginx.yml
+- hosts: linux
+  become: yes
+  tasks:
+  - apt:
+      name: nginx
+  - service:
+      name: nginx
+      state: started
+
+ssh ansible@ip_vm
+which nginx
+cd /etc/nginx
