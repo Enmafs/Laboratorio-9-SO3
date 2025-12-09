@@ -102,7 +102,10 @@ sudo usermod -aG wheel ansible
 su ansible
 sudo dnf install ansible-core -y
 ansible-galaxy collection install ansible.windows
-pip3 install pywinrm --user
+## En caso de error para arrancar el playbook agregar --force al comando anterior.
+sudo dnf install python3 python3-pip
+pip3 install pywinrm
+En caso de error al ejecutar el playbook, instalar todo con sudo
 
 sudo nano /etc/ansible/hosts
 [linux]
@@ -117,6 +120,7 @@ ansible_user=ansible2
 ansible_password=123
 ansible_connection=winrm
 ansible_winrm_server_cert_validation=ignore
+ansible_port=5986
 
 ssh-keygen -t rsa
 cat ~/.ssh/id_rsa.pub
@@ -148,6 +152,7 @@ $file = "$env:temp\ConfigureRemotingForAnsible.ps1"
 powershell.exe -ExecutionPolicy ByPass -File $file
 
 New-NetFirewallRule -Name "Ansible_WinRM_HTTPS" -DisplayName "Ansible WinRM HTTPS" -Description "Permitir Ansible por puerto 5986" -Profile Any -Direction Inbound -Action Allow -Protocol TCP -LocalPort 5986
+New-NetFirewallRule -DisplayName "Permitir Ping" -Direction Inbound -Protocol ICMPv4 -IcmpType 8 -Action Allow
 
 ######## Desde la el usuario ansible en VM OL 10 ########
 ansible Linux -m ping && ansible win -m win_ping
@@ -162,7 +167,7 @@ ansible Linux -m reboot -b
 Práctica 5
 nano notepad.yml
 - hosts: win
-  task:
+  tasks:
   - win_chocolatey:
        name: notepadplusplus
 ansible-galaxy collection install chocolatey.chocolatey
@@ -180,4 +185,51 @@ nano nginx.yml
 
 ssh ansible@ip_vm
 which nginx
+
 cd /etc/nginx
+
+#####En caso de crear usuario#####
+---
+- hosts: linux
+  become: yes
+
+  tasks:
+    - name: Agregar usuario
+      user:
+	name: adrian123
+        password: "{{ 'adrian123' | password_hash('sha512') }}"
+        groups: sudo
+        append: yes
+        shell: /bin/bash
+
+    - name: Instalar Bashtop
+      apt:
+	name: bashtop
+        update_cache: yes
+        state: present
+
+###En caso de creacion de usuario en windows###
+---
+- name: Configuracion Windows
+  hosts: Win
+
+  tasks:
+    - name: Crear usuario de prueba
+      ansible.windows.win_user:
+        name: prueba
+        password: "Password123!"
+        state: present
+        groups:
+          - Usuarios
+          - Administradores
+
+    - name: Instalar Chocolatey
+      ansible.windows.win_shell: |
+        Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePoint>
+      args:
+	creates: C:\ProgramData\chocolatey\bin\choco.exe
+
+    - name: Instalar Notepad++
+      chocolatey.chocolatey.win_chocolatey:
+        name: notepadplusplus
+        state: present
